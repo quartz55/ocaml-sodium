@@ -1,6 +1,7 @@
 (library
   (name sodium_generated)
   (public_name sodium.generated)
+  (c_library_flags :standard -lsodium)
   (libraries ctypes.stubs sodium_bindings)
   (modules sodium_generated)
   (c_names sodium_stubs))
