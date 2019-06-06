@@ -130,10 +130,8 @@ module C(F: Cstubs.FOREIGN) = struct
     end
   end
 
-  module Gen_scalar_mult (M: sig
-      val primitive : string
-    end) = struct
-    let primitive = M.primitive
+  module Scalar_mult = struct
+    let primitive = "curve25519"
     let prefix    = "crypto_scalarmult_"^primitive
 
     let sz_query_type   = F.(void @-> returning size_t)

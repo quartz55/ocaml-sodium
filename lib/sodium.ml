@@ -425,11 +425,8 @@ module Sign = struct
   module Bigbytes = Make(Storage.Bigbytes)
 end
 
-module Gen_scalar_mult (M: sig
-    val name : string
-    val primitive : string
-  end) = struct
-  module C = C.Gen_scalar_mult(M)
+module Scalar_mult = struct
+  module C = C.Scalar_mult
   let primitive = C.primitive
 
   let group_elt_size = Size_t.to_int (C.bytes ())
@@ -447,7 +444,7 @@ module Gen_scalar_mult (M: sig
   let mult scalar elem =
     let elem' = Storage.Bytes.create group_elt_size in
     let ret   = Storage.Bytes.(C.scalarmult (to_ptr elem') (to_ptr scalar)
-                                 (to_ptr elem)) in
+                                             (to_ptr elem)) in
     assert (ret = 0); (* always returns 0 *)
     elem'
 
@@ -475,7 +472,7 @@ module Gen_scalar_mult (M: sig
 
     let to_group_elt str =
       if T.length str <> group_elt_size then
-        raise (Size_mismatch (M.name^".to_group_elt"));
+        raise (Size_mismatch "Scalar_mult.to_group_elt");
       T.to_bytes str
 
     let of_integer str =
@@ -483,23 +480,12 @@ module Gen_scalar_mult (M: sig
 
     let to_integer str =
       if T.length str <> integer_size then
-        raise (Size_mismatch (M.name^".to_integer"));
+        raise (Size_mismatch "Scalar_mult.to_integer");
       T.to_bytes str
   end
 
   module Bytes = Make(Storage.Bytes)
   module Bigbytes = Make(Storage.Bigbytes)
-end
-
-module Scalar_mult = struct
-  module Curve25519 = Gen_scalar_mult(struct
-      let name = "Scalar_mult.Curve25519"
-      let primitive = "curve25519"
-    end)
-  module Ed25519 = Gen_scalar_mult(struct
-      let name = "Scalar_mult.Ed25519"
-      let primitive = "ed25519"
-    end)
 end
 
 module Password_hash = struct
