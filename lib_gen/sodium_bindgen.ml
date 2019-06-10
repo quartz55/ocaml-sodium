@@ -1,5 +1,7 @@
 open Ctypes
 
+module Type = Sodium_bindings.Type
+
 module BindStorage(T: functor(S: Sodium_storage.S) -> sig end) = struct
   module Bytes = T(Sodium_storage.Bytes)
   module Bigbytes = T(Sodium_storage.Bigbytes)
@@ -26,27 +28,31 @@ module Bind(F: Cstubs.FOREIGN) = struct
     end)
   module Sha512' = BindStorage(Sha512.Make)
 
-  module Hmac_sha256 = Gen_auth(struct
+  module Hmac_sha256 = Gen_auth_sha2(struct
     let scope     = "auth"
     let primitive = "hmacsha256"
+    include Type.Hmac_sha256
   end)
   module Hmac_sha256' = BindStorage(Hmac_sha256.Make)
 
-  module Hmac_sha512 = Gen_auth(struct
+  module Hmac_sha512 = Gen_auth_sha2(struct
     let scope     = "auth"
     let primitive = "hmacsha512"
+    include Type.Hmac_sha512
   end)
   module Hmac_sha512' = BindStorage(Hmac_sha512.Make)
 
-  module Hmac_sha512256 = Gen_auth(struct
+  module Hmac_sha512256 = Gen_auth_sha2(struct
     let scope     = "auth"
     let primitive = "hmacsha512256"
+    include Type.Hmac_sha512256
   end)
   module Hmac_sha512256' = BindStorage(Hmac_sha512256.Make)
 
-  module One_time_auth = Gen_auth(struct
+  module One_time_auth = Gen_onetimeauth(struct
     let scope     = "onetimeauth"
     let primitive = "poly1305"
+    include Type.One_time_auth
   end)
   module One_time_auth' = BindStorage(One_time_auth.Make)
 end

@@ -31,9 +31,8 @@ type channel
 module Storage = Sodium_storage
 type bigbytes = Storage.bigbytes
 
-module Sodium_types_detected = Sodium_bindings__.Sodium_types_detected
 module C = Sodium_bindings.C(Sodium_generated)
-module Type = Sodium_types.C(Sodium_types_detected)
+module Type = Sodium_bindings.Type
 module Sodium_bytes = C.Make(Storage.Bytes)
 
 let wipe str =
@@ -794,10 +793,12 @@ module Stream = struct
   module Bigbytes = Make(Storage.Bigbytes)
 end
 
-module Gen_auth(M: sig
+module Gen_auth_(M: sig
+  type state
   val scope     : string
   val primitive : string
   val name      : string
+  val state     : state structure typ
 end) = struct
   module C = C.Gen_auth(M)
   let primitive = M.primitive
@@ -821,7 +822,7 @@ end) = struct
 
   let equal_keys = Verify.equal_fn key_size
 
-  module type S = sig
+  module type S_ = sig
     type storage
 
     val of_key  : secret key -> storage
@@ -834,7 +835,7 @@ end) = struct
     val verify  : secret key -> auth -> storage -> unit
   end
 
-  module Make(T: Storage.S) = struct
+  module Make_(T: Storage.S) = struct
     module C = C.Make(T)
     type storage = T.t
 
@@ -871,35 +872,103 @@ end) = struct
                               (Storage.Bytes.to_ptr key) in
       if ret <> 0 then raise Verification_failure
   end
+end
+
+module Gen_auth_sha2(M: sig
+  type state
+  val scope     : string
+  val primitive : string
+  val name      : string
+  val state     : state structure typ
+end) = struct
+
+  module C2 = C.Gen_auth_sha2(M)
+
+  include Gen_auth_(M)
+
+  type state = {
+    ptr : M.state Static.structure ptr;
+    mutable final : bool;
+  }
+
+  let final state =
+    if state.final then raise (Already_finalized (M.name^".final"))
+    else
+      let auth = Storage.Bytes.create auth_size in
+      let ret = C2.final state.ptr (Storage.Bytes.to_ptr auth) in
+      assert (ret = 0); (* always returns 0 *)
+      state.final <- true;
+      auth
+
+  module type S = sig
+    include S_
+
+    val init   : storage -> state
+    val update : state -> storage -> unit
+  end
+
+  module Make(T: Storage.S) = struct
+
+    module C2S = C2.Make(T)
+
+    include Make_(T)
+
+    let init key =
+      let key = T.to_bytes key in
+      let ptr = allocate_n M.state ~count:1 in
+      let ret = C2.init
+          ptr
+          (Storage.Bytes.to_ptr key)
+          (Storage.Bytes.len_size_t key)
+      in
+      assert (ret = 0); (* always returns 0 *)
+      { ptr; final = false }
+
+    let update state str =
+      if state.final then raise (Already_finalized (M.name^".update"))
+      else
+        let ret = C2S.update state.ptr (T.to_ptr str) (T.len_ullong str) in
+        assert (ret = 0); (* always returns 0 *)
+        ()
+  end
 
   module Bytes = Make(Storage.Bytes)
   module Bigbytes = Make(Storage.Bigbytes)
 end
 
 module Auth = struct
-  module Hmac_sha256 = Gen_auth(struct
+  module Hmac_sha256 = Gen_auth_sha2(struct
       let scope     = "auth"
       let primitive = "hmacsha256"
       let name      = "Auth.Hmac_sha256"
+      include Type.Hmac_sha256
     end)
-  module Hmac_sha512 = Gen_auth(struct
+  module Hmac_sha512 = Gen_auth_sha2(struct
       let scope     = "auth"
       let primitive = "hmacsha512"
       let name      = "Auth.Hmac_sha512"
+      include Type.Hmac_sha512
     end)
-  module Hmac_sha512256 = Gen_auth(struct
+  module Hmac_sha512256 = Gen_auth_sha2(struct
       let scope     = "auth"
       let primitive = "hmacsha512256"
       let name      = "Auth.Hmac_sha512256"
+      include Type.Hmac_sha512256
     end)
   include Hmac_sha512256
 end
 
-module One_time_auth = Gen_auth(struct
-  let scope     = "onetimeauth"
-  let primitive = "poly1305"
-  let name      = "One_time_auth"
-end)
+module One_time_auth = struct
+  include Gen_auth_(struct
+    let scope     = "onetimeauth"
+    let primitive = "poly1305"
+    let name      = "One_time_auth"
+    include Type.One_time_auth
+  end)
+  module type S = S_
+  module Bytes = Make_(Storage.Bytes)
+  module Bigbytes = Make_(Storage.Bigbytes)
+end
 
 module Gen_hash (M: sig
     val primitive : string
