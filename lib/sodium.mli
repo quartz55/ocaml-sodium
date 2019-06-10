@@ -698,6 +698,8 @@ module Auth : sig
 
   module Hmac_sha256 : module type of Hmac_sha512256
   module Hmac_sha512 : module type of Hmac_sha512256
+
+  include module type of Hmac_sha512256
 end
 
 module One_time_auth : sig

@@ -892,6 +892,7 @@ module Auth = struct
       let primitive = "hmacsha512256"
       let name      = "Auth.Hmac_sha512256"
     end)
+  include Hmac_sha512256
 end
 
 module One_time_auth = Gen_auth(struct
