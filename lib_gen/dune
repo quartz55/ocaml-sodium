@@ -1,10 +1,13 @@
 (library
   (name sodium_generated)
   (public_name sodium.generated)
-  (c_library_flags :standard -lsodium)
   (libraries ctypes.stubs sodium_bindings)
   (modules sodium_generated)
-  (c_names sodium_stubs))
+  (foreign_stubs
+    (language c)
+    (names sodium_stubs)
+    (flags (:standard (:include c_flags.sexp))))
+  (c_library_flags (:standard (:include c_flags_libs.sexp))))
 
 (library
   (name sodium_bindings)
@@ -31,17 +34,22 @@
   (flags :standard -w -33))
 
 (rule
+  (targets c_flags.lines c_flags_libs.lines c_flags.sexp c_flags_libs.sexp)
+  (action
+    (run ./config/discover.exe)))
+
+(rule
   (targets sodium_types_detect.c)
   (action
-    (run ./sodium_typegen.bc)))
+    (run ./sodium_typegen.exe)))
 
 (rule
-  (deps sodium_types_detect.c)
-  (targets sodium_types_detect)
-  (action (bash "cc -I \"$(ocamlfind query ctypes)\" -I \"$(ocamlc -where)\" -o sodium_types_detect sodium_types_detect.c")))
+  (deps (:c sodium_types_detect.c) c_flags.lines c_flags_libs.lines)
+  (target sodium_types_detect)
+  (action
+    (run %{cc} -I %{lib:ctypes:} -I %{ocaml_where} %{read-lines:c_flags.lines} %{read-lines:c_flags_libs.lines} -o %{target} %{c})))
 
 (rule
-  (deps sodium_types_detect)
   (targets sodium_types_detected.ml)
   (action
     (with-stdout-to
@@ -53,4 +61,4 @@
 (rule
   (targets sodium_generated.ml sodium_stubs.c)
   (action
-    (run ./sodium_bindgen.bc)))
+    (run ./sodium_bindgen.exe)))

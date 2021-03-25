@@ -2,7 +2,6 @@
   (name sodium)
   (public_name sodium)
   (libraries ctypes sodium.storage sodium.generated)
-  (c_library_flags :standard -lsodium)
   (modules :standard \ sodium_storage))
 
 (library
